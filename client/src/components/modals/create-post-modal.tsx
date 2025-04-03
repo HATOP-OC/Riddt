@@ -46,6 +46,8 @@ export function CreatePostModal({
   const [selectedSubredditId, setSelectedSubredditId] = useState<string>("");
   const [tagsString, setTagsString] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>("");
 
   // Fetch subreddits
   const { data: subreddits, isLoading: isLoadingSubreddits } = useQuery<SubredditWithSubscription[]>({
@@ -113,9 +115,37 @@ export function CreatePostModal({
     setSelectedSubredditId("");
     setTagsString("");
     setImageUrl("");
+    setImageFile(null);
+    setPreviewUrl("");
+  };
+  
+  // Handle image file selection
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      // Create a preview URL
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+      // Clear any existing image URL
+      setImageUrl("");
+    }
+  };
+  
+  // Convert image file to base64 for sending to server
+  const getBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+    });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!title.trim()) {
@@ -136,11 +166,27 @@ export function CreatePostModal({
       return;
     }
     
+    // Handle image file if present
+    let finalImageUrl = imageUrl;
+    if (imageFile) {
+      try {
+        // Convert to base64 and use as imageUrl
+        finalImageUrl = await getBase64(imageFile);
+      } catch (error) {
+        toast({
+          title: "Image processing failed",
+          description: "Failed to process image file",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    
     createPostMutation.mutate({
       title,
       content,
       subredditId: parseInt(selectedSubredditId),
-      imageUrl: imageUrl || undefined,
+      imageUrl: finalImageUrl || undefined,
       tagsString,
     });
   };
@@ -205,24 +251,108 @@ export function CreatePostModal({
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="image-url">Image URL (optional)</Label>
-            <div className="flex space-x-2">
-              <Input
-                id="image-url"
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                placeholder="https://example.com/image.jpg"
-              />
-              <Button 
-                type="button" 
-                variant="outline" 
-                size="icon"
-                className="flex-shrink-0"
-                disabled={!imageUrl}
-                onClick={() => setImageUrl("")}
-              >
-                <Image className="h-4 w-4" />
-              </Button>
+            <Label>Add Image</Label>
+            <div className="flex flex-col gap-3">
+              {/* Image from URL */}
+              <div className="flex items-center space-x-2">
+                <Input
+                  id="image-url"
+                  value={imageUrl}
+                  onChange={(e) => {
+                    setImageUrl(e.target.value);
+                    // Clear any file uploads when using URL
+                    if (e.target.value) {
+                      setImageFile(null);
+                      setPreviewUrl("");
+                    }
+                  }}
+                  placeholder="Image URL (https://example.com/image.jpg)"
+                  disabled={!!imageFile}
+                />
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="icon"
+                  className="flex-shrink-0"
+                  disabled={!imageUrl}
+                  onClick={() => setImageUrl("")}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                    <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+                  </svg>
+                </Button>
+              </div>
+              
+              {/* Image upload */}
+              <div className="flex flex-col gap-2">
+                <div className="text-xs text-gray-500 dark:text-gray-400">OR</div>
+                <div className="flex items-center">
+                  <div className="relative">
+                    <Input
+                      id="image-file"
+                      type="file"
+                      accept="image/*"
+                      className="absolute inset-0 opacity-0 w-full cursor-pointer z-10"
+                      onChange={handleImageFileChange}
+                      disabled={!!imageUrl}
+                    />
+                    <Button 
+                      type="button" 
+                      variant="outline"
+                      className="flex items-center gap-2"
+                      disabled={!!imageUrl}
+                    >
+                      <Upload className="h-4 w-4" />
+                      Upload Image
+                    </Button>
+                  </div>
+                  
+                  {imageFile && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="ml-2 text-red-500 hover:text-red-700"
+                      onClick={() => {
+                        setImageFile(null);
+                        setPreviewUrl("");
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              </div>
+              
+              {/* Image preview */}
+              {previewUrl && (
+                <div className="mt-2 border rounded-md overflow-hidden relative">
+                  <img 
+                    src={previewUrl} 
+                    alt="Preview" 
+                    className="max-h-40 w-auto mx-auto object-contain"
+                  />
+                  <p className="text-xs text-center text-gray-500 p-2 bg-gray-50 dark:bg-gray-800 dark:text-gray-400">
+                    Image preview
+                  </p>
+                </div>
+              )}
+              {imageUrl && (
+                <div className="mt-2 border rounded-md overflow-hidden relative">
+                  <img 
+                    src={imageUrl} 
+                    alt="Preview" 
+                    className="max-h-40 w-auto mx-auto object-contain"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='150' viewBox='0 0 280 150'%3E%3Crect fill='%23f0f0f0' width='280' height='150'/%3E%3Ctext fill='rgba(0,0,0,0.5)' font-family='sans-serif' font-size='15' x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle'%3EInvalid image URL%3C/text%3E%3C/svg%3E";
+                    }}
+                  />
+                  <p className="text-xs text-center text-gray-500 p-2 bg-gray-50 dark:bg-gray-800 dark:text-gray-400">
+                    Image preview from URL
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </form>

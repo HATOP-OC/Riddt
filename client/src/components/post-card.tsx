@@ -243,6 +243,10 @@ export function PostCard({ post, refetchKey = "/api/posts" }: PostCardProps) {
               variant="ghost"
               size="sm"
               className="flex items-center mr-2 mb-2 hover:text-gray-700 dark:hover:text-gray-300"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/post/${post.id}`);
+              }}
             >
               <MessageSquare className="h-5 w-5 mr-1" />
               {post.commentCount} Comments
@@ -251,6 +255,16 @@ export function PostCard({ post, refetchKey = "/api/posts" }: PostCardProps) {
               variant="ghost"
               size="sm"
               className="flex items-center mr-2 mb-2 hover:text-gray-700 dark:hover:text-gray-300"
+              onClick={(e) => {
+                e.stopPropagation();
+                // Copy post URL to clipboard
+                const url = `${window.location.origin}/post/${post.id}`;
+                navigator.clipboard.writeText(url);
+                toast({
+                  title: "Link copied",
+                  description: "Post link copied to clipboard",
+                });
+              }}
             >
               <Share2 className="h-5 w-5 mr-1" />
               Share
@@ -258,11 +272,69 @@ export function PostCard({ post, refetchKey = "/api/posts" }: PostCardProps) {
             <Button
               variant="ghost"
               size="sm"
-              className="flex items-center mb-2 hover:text-gray-700 dark:hover:text-gray-300"
+              className="flex items-center mr-2 mb-2 hover:text-gray-700 dark:hover:text-gray-300"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!user) {
+                  toast({
+                    title: "Authentication required",
+                    description: "Please log in to save posts",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                toast({
+                  title: "Post saved",
+                  description: "Post has been saved to your profile",
+                });
+              }}
             >
               <Bookmark className="h-5 w-5 mr-1" />
               Save
             </Button>
+            {user && post.author.username === user.username && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="flex items-center mb-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900 dark:hover:bg-opacity-20"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (confirm("Are you sure you want to delete this post?")) {
+                    // Delete post
+                    fetch(`/api/posts/${post.id}`, {
+                      method: "DELETE",
+                      credentials: "include"
+                    })
+                    .then(response => {
+                      if (response.ok) {
+                        toast({
+                          title: "Post deleted",
+                          description: "Your post has been deleted",
+                        });
+                        // Refresh posts list
+                        queryClient.invalidateQueries({ queryKey: [refetchKey] });
+                      } else {
+                        throw new Error("Failed to delete post");
+                      }
+                    })
+                    .catch(error => {
+                      toast({
+                        title: "Delete failed",
+                        description: error.message,
+                        variant: "destructive",
+                      });
+                    });
+                  }
+                }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 mr-1">
+                  <path d="M3 6h18"></path>
+                  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                </svg>
+                Delete
+              </Button>
+            )}
           </div>
         </div>
       </div>

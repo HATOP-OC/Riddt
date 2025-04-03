@@ -58,7 +58,7 @@ export function Header({ toggleSidebar, openCreatePostModal }: HeaderProps) {
               variant="ghost"
               size="icon"
               onClick={toggleSidebar}
-              className="lg:hidden -ml-2 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
+              className="lg:hidden -ml-2 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 z-50"
             >
               <Menu className="h-6 w-6" />
             </Button>
