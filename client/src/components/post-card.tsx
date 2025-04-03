@@ -110,9 +110,40 @@ export function PostCard({ post, refetchKey = "/api/posts" }: PostCardProps) {
 
   return (
     <Card className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow">
-      <div className="flex" onClick={handlePostClick}>
-        {/* Voting */}
-        <div className="flex flex-col items-center px-3 py-4 bg-gray-50 dark:bg-gray-800 dark:border-r dark:border-gray-700">
+      <div className="flex flex-col sm:flex-row" onClick={handlePostClick}>
+        {/* Voting - For Mobile: horizontal layout */}
+        <div className="sm:hidden flex flex-row justify-center items-center py-2 px-4 bg-gray-50 dark:bg-gray-800 dark:border-b dark:border-gray-700">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleVote(1);
+            }}
+            className={`text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 ${
+              userVote === 1 ? "text-primary" : ""
+            }`}
+          >
+            <ChevronUp className="h-6 w-6" />
+          </Button>
+          <span className="text-sm font-medium mx-2">{voteScore}</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleVote(-1);
+            }}
+            className={`text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 ${
+              userVote === -1 ? "text-pink-500" : ""
+            }`}
+          >
+            <ChevronDown className="h-6 w-6" />
+          </Button>
+        </div>
+
+        {/* Voting - For Desktop: vertical layout */}
+        <div className="hidden sm:flex flex-col items-center px-3 py-4 bg-gray-50 dark:bg-gray-800 dark:border-r dark:border-gray-700">
           <Button
             variant="ghost"
             size="icon"
@@ -143,12 +174,12 @@ export function PostCard({ post, refetchKey = "/api/posts" }: PostCardProps) {
         </div>
 
         {/* Content */}
-        <div className="flex-1 p-4">
+        <div className="flex-1 p-4 overflow-hidden">
           {/* Post Header */}
-          <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 mb-2">
+          <div className="flex flex-wrap items-center text-xs text-gray-500 dark:text-gray-400 mb-2">
             <Link
               href={`/r/${post.subreddit.name}`}
-              className="flex items-center font-medium text-black dark:text-white hover:underline"
+              className="flex items-center font-medium text-black dark:text-white hover:underline mr-1"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="h-4 w-4 mr-1 bg-primary rounded-full flex items-center justify-center">
@@ -159,11 +190,11 @@ export function PostCard({ post, refetchKey = "/api/posts" }: PostCardProps) {
               r/{post.subreddit.name}
             </Link>
             <span className="mx-1">•</span>
-            <span>
+            <span className="flex flex-wrap">
               Posted by{" "}
               <Link
                 href={`/user/${post.author.username}`}
-                className="hover:underline"
+                className="hover:underline mx-1"
                 onClick={(e) => e.stopPropagation()}
               >
                 u/{post.author.username}
@@ -173,7 +204,7 @@ export function PostCard({ post, refetchKey = "/api/posts" }: PostCardProps) {
           </div>
 
           {/* Post Title */}
-          <h2 className="text-lg font-medium mb-2 text-gray-900 dark:text-white">
+          <h2 className="text-lg font-medium mb-2 text-gray-900 dark:text-white break-words">
             {post.title}
           </h2>
 
@@ -190,26 +221,28 @@ export function PostCard({ post, refetchKey = "/api/posts" }: PostCardProps) {
 
           {/* Post Content */}
           {post.content && (
-            <div className="mb-4 text-gray-800 dark:text-gray-200">
+            <div className="mb-4 text-gray-800 dark:text-gray-200 break-words">
               <p>{post.content}</p>
             </div>
           )}
 
           {/* Post Image (if available) */}
           {post.imageUrl && (
-            <img
-              src={post.imageUrl}
-              alt={post.title}
-              className="rounded-lg mb-4 w-full h-auto"
-            />
+            <div className="mb-4 max-w-full overflow-hidden">
+              <img
+                src={post.imageUrl}
+                alt={post.title}
+                className="rounded-lg w-full h-auto"
+              />
+            </div>
           )}
 
           {/* Post Actions */}
-          <div className="flex items-center text-gray-500 dark:text-gray-400 text-sm">
+          <div className="flex flex-wrap items-center text-gray-500 dark:text-gray-400 text-sm">
             <Button
               variant="ghost"
               size="sm"
-              className="flex items-center mr-4 hover:text-gray-700 dark:hover:text-gray-300"
+              className="flex items-center mr-2 mb-2 hover:text-gray-700 dark:hover:text-gray-300"
             >
               <MessageSquare className="h-5 w-5 mr-1" />
               {post.commentCount} Comments
@@ -217,7 +250,7 @@ export function PostCard({ post, refetchKey = "/api/posts" }: PostCardProps) {
             <Button
               variant="ghost"
               size="sm"
-              className="flex items-center mr-4 hover:text-gray-700 dark:hover:text-gray-300"
+              className="flex items-center mr-2 mb-2 hover:text-gray-700 dark:hover:text-gray-300"
             >
               <Share2 className="h-5 w-5 mr-1" />
               Share
@@ -225,7 +258,7 @@ export function PostCard({ post, refetchKey = "/api/posts" }: PostCardProps) {
             <Button
               variant="ghost"
               size="sm"
-              className="flex items-center mr-4 hover:text-gray-700 dark:hover:text-gray-300"
+              className="flex items-center mb-2 hover:text-gray-700 dark:hover:text-gray-300"
             >
               <Bookmark className="h-5 w-5 mr-1" />
               Save

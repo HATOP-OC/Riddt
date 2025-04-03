@@ -77,15 +77,15 @@ export function Sidebar({ isOpen, onClose, openCreateSubredditModal }: SidebarPr
         <div className="space-y-1">
           {mainLinks.map((link) => (
             <Link key={link.href} href={link.href}>
-              <a className={cn(
-                "flex items-center px-4 py-2 text-sm rounded-lg",
+              <div className={cn(
+                "flex items-center px-4 py-2 text-sm rounded-lg cursor-pointer",
                 link.active
                   ? "text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700"
                   : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
               )}>
                 {link.icon}
                 {link.label}
-              </a>
+              </div>
             </Link>
           ))}
         </div>
@@ -98,8 +98,8 @@ export function Sidebar({ isOpen, onClose, openCreateSubredditModal }: SidebarPr
           {subscribedSubreddits.length > 0 ? (
             subscribedSubreddits.map((subreddit) => (
               <Link key={subreddit.id} href={`/r/${subreddit.name}`}>
-                <a className={cn(
-                  "flex items-center px-4 py-2 text-sm rounded-lg",
+                <div className={cn(
+                  "flex items-center px-4 py-2 text-sm rounded-lg cursor-pointer",
                   location === `/r/${subreddit.name}`
                     ? "text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700"
                     : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -108,7 +108,7 @@ export function Sidebar({ isOpen, onClose, openCreateSubredditModal }: SidebarPr
                     <span className="text-white font-bold text-xs">{subreddit.name.charAt(0).toUpperCase()}</span>
                   </div>
                   r/{subreddit.name}
-                </a>
+                </div>
               </Link>
             ))
           ) : (

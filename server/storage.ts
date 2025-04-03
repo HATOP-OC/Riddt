@@ -8,12 +8,23 @@ import {
   type PostTag, type InsertPostTag,
   type Subscription, type InsertSubscription,
   type BadgeType, type InsertBadgeType,
-  type UserBadge, type InsertUserBadge
+  type UserBadge, type InsertUserBadge,
+  users, subreddits, posts, comments, votes, tags, postTags, subscriptions, badgeTypes, userBadges
 } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
+import { db } from "./db";
+import { eq, and, desc, sql as sqlQuery } from "drizzle-orm";
+import connectPg from "connect-pg-simple";
+import pg from "pg";
 
 const MemoryStore = createMemoryStore(session);
+const PostgresSessionStore = connectPg(session);
+
+// Create a pg pool
+const pool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+});
 
 // Define the storage interface
 export interface IStorage {
@@ -27,13 +38,13 @@ export interface IStorage {
   getSubreddit(id: number): Promise<Subreddit | undefined>;
   getSubredditByName(name: string): Promise<Subreddit | undefined>;
   getSubreddits(): Promise<Subreddit[]>;
-  createSubreddit(subreddit: InsertSubreddit): Promise<Subreddit>;
+  createSubreddit(subreddit: InsertSubreddit & { creatorId: number }): Promise<Subreddit>;
   
   // Post operations
   getPost(id: number): Promise<Post | undefined>;
   getPosts(subredditId?: number): Promise<Post[]>;
   getPostsByUser(userId: number): Promise<Post[]>;
-  createPost(post: InsertPost): Promise<Post>;
+  createPost(post: InsertPost & { userId: number }): Promise<Post>;
   updatePost(id: number, post: Partial<Post>): Promise<Post | undefined>;
   deletePost(id: number): Promise<boolean>;
   
@@ -41,13 +52,13 @@ export interface IStorage {
   getComment(id: number): Promise<Comment | undefined>;
   getCommentsByPost(postId: number): Promise<Comment[]>;
   getCommentsByUser(userId: number): Promise<Comment[]>;
-  createComment(comment: InsertComment): Promise<Comment>;
+  createComment(comment: InsertComment & { userId: number }): Promise<Comment>;
   updateComment(id: number, content: string): Promise<Comment | undefined>;
   deleteComment(id: number): Promise<boolean>;
   
   // Vote operations
   getVote(userId: number, postId?: number, commentId?: number): Promise<Vote | undefined>;
-  createOrUpdateVote(vote: InsertVote): Promise<Vote>;
+  createOrUpdateVote(vote: InsertVote & { userId: number }): Promise<Vote>;
   deleteVote(userId: number, postId?: number, commentId?: number): Promise<boolean>;
   
   // Tag operations
@@ -65,7 +76,7 @@ export interface IStorage {
   getSubscription(userId: number, subredditId: number): Promise<Subscription | undefined>;
   getSubscriptionsByUser(userId: number): Promise<Subscription[]>;
   getSubscriptionsBySubreddit(subredditId: number): Promise<Subscription[]>;
-  createSubscription(subscription: InsertSubscription): Promise<Subscription>;
+  createSubscription(subscription: InsertSubscription & { userId: number }): Promise<Subscription>;
   deleteSubscription(userId: number, subredditId: number): Promise<boolean>;
   
   // Badge operations
@@ -78,7 +89,7 @@ export interface IStorage {
   createUserBadge(userBadge: InsertUserBadge): Promise<UserBadge>;
   
   // Session store
-  sessionStore: session.SessionStore;
+  sessionStore: any; // Fixes the session.SessionStore type error
 }
 
 // Implement in-memory storage
@@ -107,7 +118,7 @@ export class MemStorage implements IStorage {
   private userBadgeId: number;
   
   // Session store
-  sessionStore: session.SessionStore;
+  sessionStore: any;
   
   constructor() {
     this.users = new Map();
@@ -226,9 +237,12 @@ export class MemStorage implements IStorage {
     const id = this.subredditId++;
     const createdAt = new Date();
     const newSubreddit: Subreddit = { 
-      ...subreddit, 
       id, 
-      createdAt
+      createdAt,
+      name: subreddit.name,
+      description: subreddit.description ?? null,
+      type: subreddit.type ?? "public",
+      creatorId: subreddit.creatorId
     };
     this.subreddits.set(id, newSubreddit);
     return newSubreddit;
@@ -258,10 +272,14 @@ export class MemStorage implements IStorage {
     const createdAt = new Date();
     const updatedAt = createdAt;
     const newPost: Post = { 
-      ...post, 
       id, 
+      title: post.title,
+      content: post.content ?? null,
+      imageUrl: post.imageUrl ?? null,
       createdAt, 
       updatedAt,
+      userId: post.userId,
+      subredditId: post.subredditId,
       score: 0
     };
     this.posts.set(id, newPost);
@@ -306,10 +324,13 @@ export class MemStorage implements IStorage {
     const id = this.commentId++;
     const createdAt = new Date();
     const newComment: Comment = { 
-      ...comment, 
       id, 
+      content: comment.content,
       createdAt,
-      score: 0
+      userId: comment.userId,
+      score: 0,
+      postId: comment.postId,
+      parentId: comment.parentId ?? null
     };
     this.comments.set(id, newComment);
     return newComment;
@@ -354,7 +375,14 @@ export class MemStorage implements IStorage {
       // Create new vote
       const id = this.voteId++;
       const createdAt = new Date();
-      const newVote: Vote = { ...vote, id, createdAt };
+      const newVote: Vote = { 
+        id, 
+        createdAt,
+        userId: vote.userId,
+        postId: vote.postId ?? null,
+        commentId: vote.commentId ?? null,
+        voteType: vote.voteType
+      };
       this.votes.set(id, newVote);
       return newVote;
     }
@@ -475,5 +503,394 @@ export class MemStorage implements IStorage {
   }
 }
 
+// Database Storage Implementation
+export class DatabaseStorage implements IStorage {
+  sessionStore: any;
+
+  constructor() {
+    this.sessionStore = new PostgresSessionStore({
+      pool,
+      createTableIfMissing: true
+    });
+    
+    // Initialize default badge types
+    this.initializeBadgeTypes();
+  }
+  
+  private async initializeBadgeTypes() {
+    // Check if badge types already exist
+    const existingBadges = await this.getBadgeTypes();
+    if (existingBadges.length > 0) return;
+    
+    // Add default badge types if none exist
+    const defaultBadgeTypes: InsertBadgeType[] = [
+      {
+        name: "Prolific Commenter",
+        description: "Left 50+ comments",
+        icon: "chat-bubble-left",
+        requirement: "comments",
+        threshold: 50
+      },
+      {
+        name: "Rising Star",
+        description: "Got 100+ upvotes on a post",
+        icon: "bolt",
+        requirement: "post_upvotes",
+        threshold: 100
+      },
+      {
+        name: "Trendsetter",
+        description: "Created 3+ trending posts",
+        icon: "sparkles",
+        requirement: "trending_posts",
+        threshold: 3
+      },
+      {
+        name: "Verified Contributor",
+        description: "Contribute for 30+ days",
+        icon: "shield-check",
+        requirement: "days_active",
+        threshold: 30
+      }
+    ];
+    
+    for (const badgeType of defaultBadgeTypes) {
+      await this.createBadgeType(badgeType);
+    }
+  }
+  
+  // User operations
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+  
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(
+      eq(sqlQuery`LOWER(${users.username})`, username.toLowerCase())
+    );
+    return user;
+  }
+  
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db.insert(users).values({
+      ...insertUser,
+      createdAt: new Date(),
+      karma: 0
+    }).returning();
+    return user;
+  }
+  
+  async updateUserKarma(userId: number, karma: number): Promise<User | undefined> {
+    const [updatedUser] = await db.update(users)
+      .set({ karma })
+      .where(eq(users.id, userId))
+      .returning();
+    return updatedUser;
+  }
+  
+  // Subreddit operations
+  async getSubreddit(id: number): Promise<Subreddit | undefined> {
+    const [subreddit] = await db.select().from(subreddits).where(eq(subreddits.id, id));
+    return subreddit;
+  }
+  
+  async getSubredditByName(name: string): Promise<Subreddit | undefined> {
+    const [subreddit] = await db.select().from(subreddits).where(
+      eq(sqlQuery`LOWER(${subreddits.name})`, name.toLowerCase())
+    );
+    return subreddit;
+  }
+  
+  async getSubreddits(): Promise<Subreddit[]> {
+    return await db.select().from(subreddits);
+  }
+  
+  async createSubreddit(subreddit: InsertSubreddit & { creatorId: number }): Promise<Subreddit> {
+    const [newSubreddit] = await db.insert(subreddits).values({
+      ...subreddit,
+      createdAt: new Date()
+    }).returning();
+    return newSubreddit;
+  }
+  
+  // Post operations
+  async getPost(id: number): Promise<Post | undefined> {
+    const [post] = await db.select().from(posts).where(eq(posts.id, id));
+    return post;
+  }
+  
+  async getPosts(subredditId?: number): Promise<Post[]> {
+    if (subredditId) {
+      return await db.select()
+        .from(posts)
+        .where(eq(posts.subredditId, subredditId))
+        .orderBy(desc(posts.createdAt));
+    }
+    return await db.select().from(posts).orderBy(desc(posts.createdAt));
+  }
+  
+  async getPostsByUser(userId: number): Promise<Post[]> {
+    return await db.select()
+      .from(posts)
+      .where(eq(posts.userId, userId))
+      .orderBy(desc(posts.createdAt));
+  }
+  
+  async createPost(post: InsertPost & { userId: number }): Promise<Post> {
+    const now = new Date();
+    const [newPost] = await db.insert(posts).values({
+      ...post,
+      createdAt: now,
+      updatedAt: now,
+      score: 0
+    }).returning();
+    return newPost;
+  }
+  
+  async updatePost(id: number, postUpdate: Partial<Post>): Promise<Post | undefined> {
+    const [updatedPost] = await db.update(posts)
+      .set({
+        ...postUpdate,
+        updatedAt: new Date()
+      })
+      .where(eq(posts.id, id))
+      .returning();
+    return updatedPost;
+  }
+  
+  async deletePost(id: number): Promise<boolean> {
+    const result = await db.delete(posts).where(eq(posts.id, id));
+    return !!result;
+  }
+  
+  // Comment operations
+  async getComment(id: number): Promise<Comment | undefined> {
+    const [comment] = await db.select().from(comments).where(eq(comments.id, id));
+    return comment;
+  }
+  
+  async getCommentsByPost(postId: number): Promise<Comment[]> {
+    return await db.select()
+      .from(comments)
+      .where(eq(comments.postId, postId))
+      .orderBy(desc(comments.createdAt));
+  }
+  
+  async getCommentsByUser(userId: number): Promise<Comment[]> {
+    return await db.select()
+      .from(comments)
+      .where(eq(comments.userId, userId))
+      .orderBy(desc(comments.createdAt));
+  }
+  
+  async createComment(comment: InsertComment & { userId: number }): Promise<Comment> {
+    const [newComment] = await db.insert(comments).values({
+      ...comment,
+      createdAt: new Date(),
+      score: 0
+    }).returning();
+    return newComment;
+  }
+  
+  async updateComment(id: number, content: string): Promise<Comment | undefined> {
+    const [updatedComment] = await db.update(comments)
+      .set({ content })
+      .where(eq(comments.id, id))
+      .returning();
+    return updatedComment;
+  }
+  
+  async deleteComment(id: number): Promise<boolean> {
+    const result = await db.delete(comments).where(eq(comments.id, id));
+    return !!result;
+  }
+  
+  // Vote operations
+  async getVote(userId: number, postId?: number, commentId?: number): Promise<Vote | undefined> {
+    const conditions = [eq(votes.userId, userId)];
+    
+    if (postId) {
+      conditions.push(eq(votes.postId, postId));
+    }
+    
+    if (commentId) {
+      conditions.push(eq(votes.commentId, commentId));
+    }
+    
+    const [vote] = await db.select().from(votes).where(and(...conditions));
+    return vote;
+  }
+  
+  async createOrUpdateVote(vote: InsertVote & { userId: number }): Promise<Vote> {
+    // Check if vote already exists
+    const conditions = [eq(votes.userId, vote.userId)];
+    
+    if (vote.postId) {
+      conditions.push(eq(votes.postId, vote.postId));
+    }
+    
+    if (vote.commentId) {
+      conditions.push(eq(votes.commentId, vote.commentId));
+    }
+    
+    const [existingVote] = await db.select().from(votes).where(and(...conditions));
+    
+    if (existingVote) {
+      // Update existing vote
+      const [updatedVote] = await db.update(votes)
+        .set({ voteType: vote.voteType })
+        .where(eq(votes.id, existingVote.id))
+        .returning();
+      return updatedVote;
+    } else {
+      // Create new vote
+      const [newVote] = await db.insert(votes).values({
+        ...vote,
+        createdAt: new Date()
+      }).returning();
+      return newVote;
+    }
+  }
+  
+  async deleteVote(userId: number, postId?: number, commentId?: number): Promise<boolean> {
+    const conditions = [eq(votes.userId, userId)];
+    
+    if (postId) {
+      conditions.push(eq(votes.postId, postId));
+    }
+    
+    if (commentId) {
+      conditions.push(eq(votes.commentId, commentId));
+    }
+    
+    const result = await db.delete(votes).where(and(...conditions));
+    return !!result;
+  }
+  
+  // Tag operations
+  async getTags(): Promise<Tag[]> {
+    return await db.select().from(tags);
+  }
+  
+  async getTag(id: number): Promise<Tag | undefined> {
+    const [tag] = await db.select().from(tags).where(eq(tags.id, id));
+    return tag;
+  }
+  
+  async getTagByName(name: string): Promise<Tag | undefined> {
+    const [tag] = await db.select().from(tags).where(
+      eq(sqlQuery`LOWER(${tags.name})`, name.toLowerCase())
+    );
+    return tag;
+  }
+  
+  async createTag(tag: InsertTag): Promise<Tag> {
+    const [newTag] = await db.insert(tags).values(tag).returning();
+    return newTag;
+  }
+  
+  // PostTag operations
+  async getPostTags(postId: number): Promise<PostTag[]> {
+    return await db.select()
+      .from(postTags)
+      .where(eq(postTags.postId, postId));
+  }
+  
+  async createPostTag(postTag: InsertPostTag): Promise<PostTag> {
+    const [newPostTag] = await db.insert(postTags)
+      .values(postTag)
+      .returning();
+    return newPostTag;
+  }
+  
+  async deletePostTag(postId: number, tagId: number): Promise<boolean> {
+    const result = await db.delete(postTags)
+      .where(and(
+        eq(postTags.postId, postId),
+        eq(postTags.tagId, tagId)
+      ));
+    return !!result;
+  }
+  
+  // Subscription operations
+  async getSubscription(userId: number, subredditId: number): Promise<Subscription | undefined> {
+    const [subscription] = await db.select()
+      .from(subscriptions)
+      .where(and(
+        eq(subscriptions.userId, userId),
+        eq(subscriptions.subredditId, subredditId)
+      ));
+    return subscription;
+  }
+  
+  async getSubscriptionsByUser(userId: number): Promise<Subscription[]> {
+    return await db.select()
+      .from(subscriptions)
+      .where(eq(subscriptions.userId, userId));
+  }
+  
+  async getSubscriptionsBySubreddit(subredditId: number): Promise<Subscription[]> {
+    return await db.select()
+      .from(subscriptions)
+      .where(eq(subscriptions.subredditId, subredditId));
+  }
+  
+  async createSubscription(subscription: InsertSubscription & { userId: number }): Promise<Subscription> {
+    const [newSubscription] = await db.insert(subscriptions)
+      .values({
+        ...subscription,
+        createdAt: new Date()
+      })
+      .returning();
+    return newSubscription;
+  }
+  
+  async deleteSubscription(userId: number, subredditId: number): Promise<boolean> {
+    const result = await db.delete(subscriptions)
+      .where(and(
+        eq(subscriptions.userId, userId),
+        eq(subscriptions.subredditId, subredditId)
+      ));
+    return !!result;
+  }
+  
+  // Badge operations
+  async getBadgeTypes(): Promise<BadgeType[]> {
+    return await db.select().from(badgeTypes);
+  }
+  
+  async getBadgeType(id: number): Promise<BadgeType | undefined> {
+    const [badgeType] = await db.select()
+      .from(badgeTypes)
+      .where(eq(badgeTypes.id, id));
+    return badgeType;
+  }
+  
+  async createBadgeType(badgeType: InsertBadgeType): Promise<BadgeType> {
+    const [newBadgeType] = await db.insert(badgeTypes)
+      .values(badgeType)
+      .returning();
+    return newBadgeType;
+  }
+  
+  // UserBadge operations
+  async getUserBadges(userId: number): Promise<UserBadge[]> {
+    return await db.select()
+      .from(userBadges)
+      .where(eq(userBadges.userId, userId));
+  }
+  
+  async createUserBadge(userBadge: InsertUserBadge): Promise<UserBadge> {
+    const [newUserBadge] = await db.insert(userBadges)
+      .values({
+        ...userBadge,
+        awardedAt: new Date()
+      })
+      .returning();
+    return newUserBadge;
+  }
+}
+
 // Export an instance of the storage
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

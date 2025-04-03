@@ -54,12 +54,14 @@ export function Header({ toggleSidebar, openCreatePostModal }: HeaderProps) {
         <div className="flex h-16 items-center justify-between">
           {/* Logo and mobile menu button */}
           <div className="flex items-center">
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={toggleSidebar}
-              className="lg:hidden -ml-2 p-2 rounded-md text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white"
+              className="lg:hidden -ml-2 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
             >
               <Menu className="h-6 w-6" />
-            </button>
+            </Button>
             <Link href="/" className="flex items-center space-x-2 ml-2 lg:ml-0">
               <div className="h-8 w-8 bg-primary rounded-full flex items-center justify-center">
                 <span className="text-white font-bold text-sm">R</span>
