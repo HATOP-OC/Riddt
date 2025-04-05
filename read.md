@@ -37,15 +37,40 @@ This will install all dependencies specified in `package.json`, including:
 
 ### 3. Database Setup
 
-The application uses PostgreSQL for data storage. On Replit, PostgreSQL is available as a module.
+The application uses PostgreSQL for data storage. На Replit PostgreSQL доступний як модуль.
 
-1. Initialize the database schema:
+1. **Створення бази даних**:
+   - Відкрийте нову вкладку в Replit і введіть "Database"
+   - У панелі "Database" натисніть "create a database"
+   - Після створення бази даних, ви отримаєте доступ до інформації про підключення
+
+2. **Налаштування змінних середовища**:
+   - Replit автоматично створить змінну середовища `DATABASE_URL` в розділі Secrets
+   - Переконайтеся, що ця змінна доступна - перевірте в розділі "Secrets" в лівій панелі
+   - Значення `DATABASE_URL` має формат: `postgresql://username:password@hostname:port/database_name`
+
+3. **Ініціалізація схеми бази даних**:
+   - Використовуючи Drizzle ORM, виконайте міграцію схеми:
 
 ```bash
 npm run db:push
 ```
 
-This command uses Drizzle Kit to push the schema defined in your application to the database.
+Ця команда використовує Drizzle Kit для створення і застосування схеми, визначеної у файлі `shared/schema.ts`.
+
+4. **Перевірка підключення**:
+   - Ви можете перевірити підключення до бази даних, запустивши:
+
+```bash
+npx drizzle-kit studio
+```
+
+Це відкриє графічний інтерфейс, де ви зможете переглядати структуру та дані вашої бази даних.
+
+5. **SQL Explorer**:
+   - Replit надає SQL Explorer для керування базою даних
+   - Відкрийте вкладку "Database" для доступу до SQL Explorer
+   - Тут ви можете виконувати запити SQL для перегляду або зміни даних
 
 ### 4. Environment Variables
 
