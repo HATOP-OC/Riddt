@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+
+# Native builds
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# iOS
+ios/
+
+# Android
+android/
+*.hprof
+
+# Logs
+npm-debug.*
+*.log
+
+# Local env files
+.env*.local
+.env
+
+# TypeScript
+*.tsbuildinfo
+
+# OS
+.DS_Store
+*.pem
+
+# Metro
+.metro-health-check*
+
+# Testing
+coverage/
