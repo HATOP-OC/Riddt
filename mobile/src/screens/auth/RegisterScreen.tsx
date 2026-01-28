@@ -83,7 +83,7 @@ export function RegisterScreen({ navigation }: Props) {
           <View style={styles.logoContainer}>
             <View style={[styles.logo, shadows.lg]}>
               <View style={styles.logoInner}>
-                <Ionicons name="chatbubbles" size={44} color={colors.primaryForeground} />
+                <Ionicons name="chatbubbles" size={48} color={colors.primaryForeground} />
               </View>
             </View>
             <Text style={[styles.appName, { color: theme.colors.foreground }]}>
@@ -195,22 +195,22 @@ const styles = StyleSheet.create({
     marginBottom: spacing[6],
   },
   logo: {
-    width: 100,
-    height: 100,
-    borderRadius: 28,
+    width: 110,
+    height: 110,
+    borderRadius: 30,
     marginBottom: spacing[4],
     backgroundColor: colors.primary,
-    padding: 4,
+    padding: 5,
   },
   logoInner: {
     flex: 1,
-    borderRadius: 24,
+    borderRadius: 25,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   appName: {
-    fontSize: 36,
+    fontSize: 40,
     fontWeight: '800',
     marginBottom: spacing[1],
     letterSpacing: -1,

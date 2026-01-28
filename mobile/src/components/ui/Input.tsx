@@ -6,7 +6,9 @@ import {
   StyleSheet,
   TextInputProps,
   ViewStyle,
-  Animated,
+  NativeSyntheticEvent,
+  TextInputFocusEventData,
+  TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, borderRadius, spacing, fontSizes, shadows } from '@/theme';
@@ -28,12 +30,12 @@ export const Input = forwardRef<TextInput, InputProps>(
     const { theme } = useThemeStore();
     const [isFocused, setIsFocused] = useState(false);
     
-    const handleFocus = (e: any) => {
+    const handleFocus = (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
       setIsFocused(true);
       onFocus?.(e);
     };
     
-    const handleBlur = (e: any) => {
+    const handleBlur = (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
       setIsFocused(false);
       onBlur?.(e);
     };
@@ -89,16 +91,17 @@ export const Input = forwardRef<TextInput, InputProps>(
             {...props}
           />
           {rightIcon && (
-            <View 
+            <TouchableOpacity 
               style={styles.rightIconContainer}
-              onTouchEnd={onRightIconPress}
+              onPress={onRightIconPress}
+              activeOpacity={0.7}
             >
               <Ionicons 
                 name={rightIcon} 
                 size={20} 
                 color={theme.colors.mutedForeground} 
               />
-            </View>
+            </TouchableOpacity>
           )}
         </View>
         {error && (

@@ -24,6 +24,23 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
 type TabOption = 'posts' | 'comments';
 
+type IoniconsName = keyof typeof Ionicons.glyphMap;
+
+// Map badge icon strings to valid Ionicons names
+const getBadgeIcon = (iconName?: string): IoniconsName => {
+  const iconMap: Record<string, IoniconsName> = {
+    'trophy': 'trophy',
+    'star': 'star',
+    'medal': 'medal',
+    'ribbon': 'ribbon',
+    'flame': 'flame',
+    'heart': 'heart',
+    'chatbubbles': 'chatbubbles',
+    'rocket': 'rocket',
+  };
+  return iconMap[iconName || ''] || 'trophy';
+};
+
 export function ProfileScreen({ route, navigation }: Props) {
   const { username } = route.params;
   const { theme } = useThemeStore();
@@ -135,7 +152,7 @@ export function ProfileScreen({ route, navigation }: Props) {
                       style={[styles.badge, { backgroundColor: theme.colors.muted }]}
                     >
                       <Ionicons 
-                        name={(badge.badgeType?.icon as any) || 'trophy'} 
+                        name={getBadgeIcon(badge.badgeType?.icon)} 
                         size={16} 
                         color={colors.primary} 
                       />
