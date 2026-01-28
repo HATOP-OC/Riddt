@@ -1,4 +1,4 @@
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useState } from 'react';
 import {
   TextInput,
   View,
@@ -6,19 +6,43 @@ import {
   StyleSheet,
   TextInputProps,
   ViewStyle,
+  Animated,
 } from 'react-native';
-import { colors, borderRadius, spacing, fontSizes } from '@/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { colors, borderRadius, spacing, fontSizes, shadows } from '@/theme';
 import { useThemeStore } from '@/store';
+
+type IoniconsName = keyof typeof Ionicons.glyphMap;
 
 interface InputProps extends TextInputProps {
   label?: string;
   error?: string;
   containerStyle?: ViewStyle;
+  leftIcon?: IoniconsName;
+  rightIcon?: IoniconsName;
+  onRightIconPress?: () => void;
 }
 
 export const Input = forwardRef<TextInput, InputProps>(
-  ({ label, error, containerStyle, style, ...props }, ref) => {
+  ({ label, error, containerStyle, style, leftIcon, rightIcon, onRightIconPress, onFocus, onBlur, ...props }, ref) => {
     const { theme } = useThemeStore();
+    const [isFocused, setIsFocused] = useState(false);
+    
+    const handleFocus = (e: any) => {
+      setIsFocused(true);
+      onFocus?.(e);
+    };
+    
+    const handleBlur = (e: any) => {
+      setIsFocused(false);
+      onBlur?.(e);
+    };
+    
+    const getBorderColor = () => {
+      if (error) return colors.destructive;
+      if (isFocused) return colors.primary;
+      return theme.colors.border;
+    };
     
     return (
       <View style={[styles.container, containerStyle]}>
@@ -27,21 +51,62 @@ export const Input = forwardRef<TextInput, InputProps>(
             {label}
           </Text>
         )}
-        <TextInput
-          ref={ref}
+        <View 
           style={[
-            styles.input,
+            styles.inputWrapper,
             {
-              backgroundColor: theme.colors.background,
-              borderColor: error ? colors.destructive : theme.colors.border,
-              color: theme.colors.foreground,
+              backgroundColor: theme.colors.muted,
+              borderColor: getBorderColor(),
             },
-            style,
+            isFocused && styles.inputWrapperFocused,
+            isFocused && { borderColor: colors.primary },
+            error && styles.inputWrapperError,
           ]}
-          placeholderTextColor={theme.colors.mutedForeground}
-          {...props}
-        />
-        {error && <Text style={styles.error}>{error}</Text>}
+        >
+          {leftIcon && (
+            <View style={styles.iconContainer}>
+              <Ionicons 
+                name={leftIcon} 
+                size={20} 
+                color={isFocused ? colors.primary : theme.colors.mutedForeground} 
+              />
+            </View>
+          )}
+          <TextInput
+            ref={ref}
+            style={[
+              styles.input,
+              {
+                color: theme.colors.foreground,
+              },
+              leftIcon && styles.inputWithLeftIcon,
+              rightIcon && styles.inputWithRightIcon,
+              style,
+            ]}
+            placeholderTextColor={theme.colors.mutedForeground}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            {...props}
+          />
+          {rightIcon && (
+            <View 
+              style={styles.rightIconContainer}
+              onTouchEnd={onRightIconPress}
+            >
+              <Ionicons 
+                name={rightIcon} 
+                size={20} 
+                color={theme.colors.mutedForeground} 
+              />
+            </View>
+          )}
+        </View>
+        {error && (
+          <View style={styles.errorContainer}>
+            <Ionicons name="alert-circle" size={14} color={colors.destructive} />
+            <Text style={styles.error}>{error}</Text>
+          </View>
+        )}
       </View>
     );
   }
@@ -55,20 +120,56 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: fontSizes.sm,
-    fontWeight: '500',
-    marginBottom: spacing[1.5],
+    fontWeight: '600',
+    marginBottom: spacing[2],
+    letterSpacing: 0.3,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+    minHeight: 52,
+  },
+  inputWrapperFocused: {
+    ...shadows.md,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.15,
+  },
+  inputWrapperError: {
+    borderColor: colors.destructive,
+  },
+  iconContainer: {
+    paddingLeft: spacing[4],
+    paddingRight: spacing[1],
+  },
+  rightIconContainer: {
+    paddingRight: spacing[4],
+    paddingLeft: spacing[1],
   },
   input: {
-    borderWidth: 1,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing[3],
-    paddingVertical: spacing[2.5],
+    flex: 1,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
     fontSize: fontSizes.base,
-    minHeight: 44,
+    fontWeight: '500',
+  },
+  inputWithLeftIcon: {
+    paddingLeft: spacing[2],
+  },
+  inputWithRightIcon: {
+    paddingRight: spacing[2],
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing[1.5],
+    gap: spacing[1],
   },
   error: {
     color: colors.destructive,
     fontSize: fontSizes.xs,
-    marginTop: spacing[1],
+    fontWeight: '500',
   },
 });

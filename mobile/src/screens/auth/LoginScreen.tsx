@@ -13,7 +13,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Button, Input } from '@/components/ui';
-import { colors, spacing, fontSizes, borderRadius } from '@/theme';
+import { colors, spacing, fontSizes, borderRadius, shadows } from '@/theme';
 import { useThemeStore, useAuthStore } from '@/store';
 import { handleApiError } from '@/api';
 import type { RootStackParamList } from '@/types';
@@ -60,8 +60,10 @@ export function LoginScreen({ navigation }: Props) {
         >
           {/* Logo */}
           <View style={styles.logoContainer}>
-            <View style={[styles.logo, { backgroundColor: colors.primary }]}>
-              <Ionicons name="chatbubbles" size={48} color={colors.primaryForeground} />
+            <View style={[styles.logo, shadows.lg]}>
+              <View style={styles.logoInner}>
+                <Ionicons name="chatbubbles" size={48} color={colors.primaryForeground} />
+              </View>
             </View>
             <Text style={[styles.appName, { color: theme.colors.foreground }]}>
               Riddt
@@ -72,13 +74,16 @@ export function LoginScreen({ navigation }: Props) {
           </View>
           
           {/* Form */}
-          <View style={styles.form}>
+          <View style={[styles.form, { backgroundColor: theme.colors.card }, shadows.md]}>
             <Text style={[styles.title, { color: theme.colors.foreground }]}>
-              Log In
+              Welcome Back
+            </Text>
+            <Text style={[styles.subtitle, { color: theme.colors.mutedForeground }]}>
+              Sign in to continue
             </Text>
             
             {(localError || error) && (
-              <View style={[styles.errorContainer, { backgroundColor: colors.destructive + '20' }]}>
+              <View style={[styles.errorContainer, { backgroundColor: colors.destructive + '15' }]}>
                 <Ionicons name="alert-circle" size={20} color={colors.destructive} />
                 <Text style={[styles.errorText, { color: colors.destructive }]}>
                   {localError || error}
@@ -93,28 +98,20 @@ export function LoginScreen({ navigation }: Props) {
               onChangeText={setUsername}
               autoCapitalize="none"
               autoCorrect={false}
+              leftIcon="person-outline"
             />
             
-            <View style={styles.passwordContainer}>
-              <Input
-                label="Password"
-                placeholder="Enter your password"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-              />
-              <TouchableOpacity
-                style={styles.showPasswordButton}
-                onPress={() => setShowPassword(!showPassword)}
-              >
-                <Ionicons
-                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                  size={20}
-                  color={theme.colors.mutedForeground}
-                />
-              </TouchableOpacity>
-            </View>
+            <Input
+              label="Password"
+              placeholder="Enter your password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              leftIcon="lock-closed-outline"
+              rightIcon={showPassword ? 'eye-off-outline' : 'eye-outline'}
+              onRightIconPress={() => setShowPassword(!showPassword)}
+            />
             
             <Button
               onPress={handleLogin}
@@ -124,6 +121,14 @@ export function LoginScreen({ navigation }: Props) {
             >
               Log In
             </Button>
+            
+            <View style={styles.divider}>
+              <View style={[styles.dividerLine, { backgroundColor: theme.colors.border }]} />
+              <Text style={[styles.dividerText, { color: theme.colors.mutedForeground }]}>
+                or
+              </Text>
+              <View style={[styles.dividerLine, { backgroundColor: theme.colors.border }]} />
+            </View>
             
             <View style={styles.footer}>
               <Text style={[styles.footerText, { color: theme.colors.mutedForeground }]}>
@@ -151,37 +156,53 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    padding: spacing[6],
+    padding: spacing[5],
     justifyContent: 'center',
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: spacing[10],
+    marginBottom: spacing[8],
   },
   logo: {
-    width: 100,
-    height: 100,
+    width: 110,
+    height: 110,
+    borderRadius: 30,
+    marginBottom: spacing[4],
+    backgroundColor: colors.primary,
+    padding: 5,
+  },
+  logoInner: {
+    flex: 1,
     borderRadius: 25,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing[4],
   },
   appName: {
-    fontSize: 36,
+    fontSize: 40,
     fontWeight: '800',
     marginBottom: spacing[1],
+    letterSpacing: -1,
   },
   tagline: {
     fontSize: fontSizes.md,
+    fontWeight: '500',
   },
   form: {
     width: '100%',
     maxWidth: 400,
     alignSelf: 'center',
+    borderRadius: borderRadius.xl,
+    padding: spacing[6],
   },
   title: {
     fontSize: fontSizes['2xl'],
     fontWeight: '700',
+    marginBottom: spacing[1],
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: fontSizes.base,
     marginBottom: spacing[6],
     textAlign: 'center',
   },
@@ -189,36 +210,45 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: spacing[3],
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
     marginBottom: spacing[4],
+    borderWidth: 1,
+    borderColor: colors.destructive + '30',
   },
   errorText: {
     flex: 1,
     marginLeft: spacing[2],
     fontSize: fontSizes.sm,
-  },
-  passwordContainer: {
-    position: 'relative',
-  },
-  showPasswordButton: {
-    position: 'absolute',
-    right: spacing[3],
-    top: 36,
-    padding: spacing[2],
+    fontWeight: '500',
   },
   submitButton: {
     marginTop: spacing[2],
+    height: 52,
+    borderRadius: borderRadius.lg,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: spacing[5],
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  dividerText: {
+    marginHorizontal: spacing[4],
+    fontSize: fontSizes.sm,
+    fontWeight: '500',
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: spacing[6],
   },
   footerText: {
     fontSize: fontSizes.base,
   },
   link: {
     fontSize: fontSizes.base,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });

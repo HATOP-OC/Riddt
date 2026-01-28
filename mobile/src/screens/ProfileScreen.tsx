@@ -134,7 +134,11 @@ export function ProfileScreen({ route, navigation }: Props) {
                       key={badge.id} 
                       style={[styles.badge, { backgroundColor: theme.colors.muted }]}
                     >
-                      <Text style={styles.badgeIcon}>{badge.badgeType?.icon || '🏆'}</Text>
+                      <Ionicons 
+                        name={(badge.badgeType?.icon as any) || 'trophy'} 
+                        size={16} 
+                        color={colors.primary} 
+                      />
                       <Text style={[styles.badgeName, { color: theme.colors.foreground }]}>
                         {badge.badgeType?.name || 'Badge'}
                       </Text>
@@ -333,10 +337,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[3],
     paddingVertical: spacing[2],
     borderRadius: borderRadius.full,
-  },
-  badgeIcon: {
-    fontSize: 16,
-    marginRight: spacing[1],
+    gap: spacing[1.5],
   },
   badgeName: {
     fontSize: fontSizes.sm,
